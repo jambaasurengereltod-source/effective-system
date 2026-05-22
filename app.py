@@ -11,7 +11,13 @@ def load_data():
         return {"users": {}, "horses": {}}
     with open(DATA_FILE, "r", encoding="utf-8") as f:
         try:
-            return json.load(f)
+            data = json.load(f)
+            # Хэрэв уншсан өгөгдөл дотор users эсвэл horses байхгүй бол автоматаар хоосон оноож хамгаална
+            if "users" not in data:
+                data["users"] = {}
+            if "horses" not in data:
+                data["horses"] = {}
+            return data
         except json.JSONDecodeError:
             return {"users": {}, "horses": {}}
 
@@ -59,8 +65,6 @@ def add_horse():
         stallion = "Тодорхойгүй"
 
     data = load_data()
-    if "horses" not in data:
-        data["horses"] = {}
     if username not in data["horses"]:
         data["horses"][username] = []
 
@@ -100,7 +104,9 @@ def login():
         password = request.form.get('password')
         
         data = load_data()
-        if username in data['users'] and data['users'][username] == password:
+        
+        # Энд KeyError гарахаас хамгаалж .get() ашиглалаа
+        if username in data.get('users', {}) and data['users'][username] == password:
             session['username'] = username
             return redirect('/')
         return render_template('login.html', error="Хэрэглэгчийн нэр эсвэл нууц үг буруу байна!")
@@ -114,7 +120,7 @@ def register():
         password = request.form.get('password')
         
         data = load_data()
-        if username in data['users']:
+        if username in data.get('users', {}):
             return render_template('register.html', error="Энэ хэрэглэгчийн нэр бүртгэлтэй байна!")
             
         data['users'][username] = password
