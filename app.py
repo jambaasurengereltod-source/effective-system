@@ -29,13 +29,13 @@ def index():
     
     all_horses = data.get("horses", {}).get(username, [])
     
-    # Бүртгэлтэй байгаа азаргануудын жагсаалт
+    # Азаргануудын жагсаалт үүсгэх
     stallions = sorted(list(set([h['stallion'].strip() for h in all_horses if h.get('stallion') and h['stallion'].strip()])))
     
-    # Шүүлтүүрийн утгыг авах
+    # Шүүлтүүрийн утга авах
     selected_stallion = request.args.get('filter_stallion', '').strip()
     
-    # Хэрэв азарга сонгогдсон бол шүүлтүүр хийх
+    # Шүүлтүүр хийх
     if selected_stallion:
         horses = [h for h in all_horses if h.get('stallion', '').strip().lower() == selected_stallion.lower()]
     else:
