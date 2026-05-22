@@ -5,13 +5,13 @@ import os
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_aduu_project"
 
-# Найдвартай линк (Хэрэв Render дээр тохируулаагүй бол шууд эндээс уншина)
-MONGO_URI = os.environ.get(
-    "MONGO_URI", 
-    "mongodb+srv://aduuuser:aduu1234@cluster0.p0vqq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-)
+# Стандарт өгөгдлийн сангийн линк (DNS алдаа гаргахгүй, хамгийн найдвартай хувилбар)
+STANDARD_MONGO_URI = "mongodb://aduuuser:aduu1234@ac-p0vqq-shard-00-00.p0vqq.mongodb.net:27017,ac-p0vqq-shard-00-01.p0vqq.mongodb.net:27017,ac-p0vqq-shard-00-02.p0vqq.mongodb.net:27017/aduu_database?ssl=true&replicaSet=atlas-2bsh7n-shard-0&authSource=admin&retryWrites=true&w=majority"
 
-# Өгөгдлийн сантай шууд холбох
+# Render-ийн Environment-ээс уншина, байхгүй бол стандарт линкийг шууд ашиглана
+MONGO_URI = os.environ.get("MONGO_URI", STANDARD_MONGO_URI)
+
+# Өгөгдлийн сантай холбогдох
 client = MongoClient(MONGO_URI)
 db = client['aduu_database']
 users_col = db['users']
