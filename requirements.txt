@@ -1,1 +1,1 @@
-flaskgunicornpymongo[srv] 
+flaskgunicornflask_sqlalchemypsycopg2-binary
