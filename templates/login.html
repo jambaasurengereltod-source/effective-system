@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Адуу Бүртгэл - Нэвтрэх</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .login-box { 
+            background: rgba(255, 255, 255, 0.95); 
+            padding: 40px 30px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3); 
+            width: 340px; 
+            text-align: center;
+            border-top: 5px solid #d4af37; 
+        }
+        .logo { font-size: 50px; margin-bottom: 10px; }
+        h2 { margin: 0 0 5px 0; color: #1b5e20; font-size: 24px; font-weight: bold; }
+        p.subtitle { color: #666; margin-top: 0; margin-bottom: 25px; font-size: 14px; }
+        input { 
+            width: 100%; 
+            padding: 12px 15px; 
+            margin: 8px 0; 
+            border: 1px solid #ccc; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 15px; 
+            transition: 0.3s;
+            background-color: #f8f9fa;
+        }
+        input:focus { border-color: #2e7d32; background-color: #fff; outline: none; box-shadow: 0 0 5px rgba(46, 125, 50, 0.3); }
+        button { 
+            width: 100%; padding: 12px; 
+            background: linear-gradient(135deg, #8d6e63 0%, #5d4037 100%); 
+            color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s;
+        }
+        button:hover { background: linear-gradient(135deg, #5d4037 0%, #4e342e 100%); transform: translateY(-1px); }
+        .error { background-color: #ffebee; color: #c62828; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 14px; border: 1px solid #ffcdd2; text-align: center; }
+        .links { text-align: center; margin-top: 25px; font-size: 14px; color: #555; }
+        .links a { color: #2e7d32; text-decoration: none; font-weight: bold; }
+        .links a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="login-box">
+    <div class="logo">🐎</div>
+    <h2>АДУУ БҮРТГЭЛ</h2>
+    <p class="subtitle">Цахим бүртгэлийн систем</p>
+    
+    {% if error %}
+        <div class="error">❌ {{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="/login">
+        <input type="text" name="username" placeholder="Нэвтрэх нэр" required>
+        <input type="password" name="password" placeholder="Нууц үг" required>
+        <button type="submit">СИСТЕМД НЭВТРЭХ</button>
+    </form>
+    
+    <div class="links">
+        Шинэ хэрэглэгч үү? <a href="/register">Бүртгэл үүсгэх</a>
+    </div>
+</div>
+
+</body>
+</html>
