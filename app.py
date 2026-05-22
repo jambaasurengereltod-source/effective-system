@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, session, url_parser
+from flask import Flask, render_template, request, redirect, session
 import json
 import os
 
@@ -6,7 +6,6 @@ app = Flask(__name__)
 app.secret_key = "super_secret_key_for_aduu_project"
 DATA_FILE = "users.json"
 
-# Өгөгдөл хадгалах, унших функцууд
 def load_data():
     if not os.path.exists(DATA_FILE):
         return {"users": {}, "horses": {}}
@@ -28,16 +27,15 @@ def index():
     username = session['username']
     data = load_data()
     
-    # Зөвхөн тухайн нэвтэрсэн малчны адуунуудыг шүүж авна
     all_horses = data.get("horses", {}).get(username, [])
     
-    # Бүртгэлтэй байгаа бүх азаргануудын нэрсийг давхардахгүйгээр жагсааж авах
+    # Бүртгэлтэй байгаа азаргануудын жагсаалт
     stallions = sorted(list(set([h['stallion'].strip() for h in all_horses if h.get('stallion') and h['stallion'].strip()])))
     
-    # HTML-ээс ирж буй шүүлтүүрийн утга
+    # Шүүлтүүрийн утгыг авах
     selected_stallion = request.args.get('filter_stallion', '').strip()
     
-    # Хэрэв азарга сонгосон байвал адуугаа шүүнэ (Том жижиг үсэг харгалзахгүй)
+    # Хэрэв азарга сонгогдсон бол шүүлтүүр хийх
     if selected_stallion:
         horses = [h for h in all_horses if h.get('stallion', '').strip().lower() == selected_stallion.lower()]
     else:
@@ -45,7 +43,7 @@ def index():
 
     return render_template('index.html', horses=horses, stallions=stallions, selected_stallion=selected_stallion)
 
-@app.route('/add', models=['POST'])
+@app.route('/add', methods=['POST'])
 def add_horse():
     if 'username' not in session:
         return redirect('/login')
@@ -66,7 +64,6 @@ def add_horse():
     if username not in data["horses"]:
         data["horses"][username] = []
 
-    # Шинэ адууны ID үүсгэх
     horse_id = len(data["horses"][username]) + 1
     
     new_horse = {
@@ -96,7 +93,7 @@ def delete_horse(horse_id):
         
     return redirect('/')
 
-@app.route('/login', models=['GET', 'POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username').strip()
@@ -110,7 +107,7 @@ def login():
         
     return render_template('login.html')
 
-@app.route('/register', models=['GET', 'POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username').strip()
