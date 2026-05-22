@@ -1,29 +1,21 @@
 from flask import Flask, render_template, request, redirect, session
-import json
+from pymongo import MongoClient
 import os
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_aduu_project"
-DATA_FILE = "users.json"
 
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {"users": {}, "horses": {}}
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        try:
-            data = json.load(f)
-            # Хэрэв уншсан өгөгдөл дотор users эсвэл horses байхгүй бол автоматаар хоосон оноож хамгаална
-            if "users" not in data:
-                data["users"] = {}
-            if "horses" not in data:
-                data["horses"] = {}
-            return data
-        except json.JSONDecodeError:
-            return {"users": {}, "horses": {}}
+# Render-ийн орчны хувьсагчаас MongoDB линкийг уншина. 
+# Хэрэв олдохгүй бол туршилтын журмаар локал линк ашиглана.
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb+scroll_connection_string_here")
 
-def save_data(data):
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+try:
+    client = MongoClient(MONGO_URI)
+    db = client['aduu_database']
+    users_col = db['users']
+    horses_col = db['horses']
+except Exception as e:
+    print(f"Өгөгдлийн сантай холбогдоход алдаа гарлаа: {e}")
 
 @app.route('/')
 def index():
@@ -31,9 +23,9 @@ def index():
         return redirect('/login')
     
     username = session['username']
-    data = load_data()
     
-    all_horses = data.get("horses", {}).get(username, [])
+    # Өгөгдлийн сангаас тухайн малчны бүх адууг унших
+    all_horses = list(horses_col.find({"username": username}))
     
     # Азаргануудын жагсаалт үүсгэх
     stallions = sorted(list(set([h['stallion'].strip() for h in all_horses if h.get('stallion') and h['stallion'].strip()])))
@@ -64,14 +56,9 @@ def add_horse():
     if not stallion:
         stallion = "Тодорхойгүй"
 
-    data = load_data()
-    if username not in data["horses"]:
-        data["horses"][username] = []
-
-    horse_id = len(data["horses"][username]) + 1
-    
+    # Шинэ адууны өгөгдөл үүсгэх
     new_horse = {
-        "id": horse_id,
+        "username": username,
         "name": name,
         "age": age,
         "color": color,
@@ -79,22 +66,18 @@ def add_horse():
         "stallion": stallion
     }
     
-    data["horses"][username].append(new_horse)
-    save_data(data)
+    # Өгөгдлийн сан руу шууд хадгалах
+    horses_col.insert_one(new_horse)
     return redirect('/')
 
-@app.route('/delete/<int:horse_id>')
-def delete_horse(horse_id):
+@app.route('/delete/<string:horse_name>')
+def delete_horse(horse_name):
     if 'username' not in session:
         return redirect('/login')
     
     username = session['username']
-    data = load_data()
-    
-    if username in data.get("horses", {}):
-        data["horses"][username] = [h for h in data["horses"][username] if h['id'] != horse_id]
-        save_data(data)
-        
+    # Тухайн малчны нэр хэлбэрээр нь устгах
+    horses_col.delete_one({"username": username, "name": horse_name})
     return redirect('/')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -103,10 +86,8 @@ def login():
         username = request.form.get('username').strip()
         password = request.form.get('password')
         
-        data = load_data()
-        
-        # Энд KeyError гарахаас хамгаалж .get() ашиглалаа
-        if username in data.get('users', {}) and data['users'][username] == password:
+        user = users_col.find_one({"username": username})
+        if user and user['password'] == password:
             session['username'] = username
             return redirect('/')
         return render_template('login.html', error="Хэрэглэгчийн нэр эсвэл нууц үг буруу байна!")
@@ -119,12 +100,10 @@ def register():
         username = request.form.get('username').strip()
         password = request.form.get('password')
         
-        data = load_data()
-        if username in data.get('users', {}):
+        if users_col.find_one({"username": username}):
             return render_template('register.html', error="Энэ хэрэглэгчийн нэр бүртгэлтэй байна!")
             
-        data['users'][username] = password
-        save_data(data)
+        users_col.insert_one({"username": username, "password": password})
         session['username'] = username
         return redirect('/')
         
