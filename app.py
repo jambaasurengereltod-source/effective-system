@@ -5,17 +5,17 @@ import os
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_aduu_project"
 
-# Render-ийн орчны хувьсагчаас MongoDB линкийг уншина. 
-# Хэрэв олдохгүй бол туршилтын журмаар локал линк ашиглана.
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb+scroll_connection_string_here")
+# Найдвартай линк (Хэрэв Render дээр тохируулаагүй бол шууд эндээс уншина)
+MONGO_URI = os.environ.get(
+    "MONGO_URI", 
+    "mongodb+srv://aduuuser:aduu1234@cluster0.p0vqq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+)
 
-try:
-    client = MongoClient(MONGO_URI)
-    db = client['aduu_database']
-    users_col = db['users']
-    horses_col = db['horses']
-except Exception as e:
-    print(f"Өгөгдлийн сантай холбогдоход алдаа гарлаа: {e}")
+# Өгөгдлийн сантай шууд холбох
+client = MongoClient(MONGO_URI)
+db = client['aduu_database']
+users_col = db['users']
+horses_col = db['horses']
 
 @app.route('/')
 def index():
@@ -23,17 +23,11 @@ def index():
         return redirect('/login')
     
     username = session['username']
-    
-    # Өгөгдлийн сангаас тухайн малчны бүх адууг унших
     all_horses = list(horses_col.find({"username": username}))
     
-    # Азаргануудын жагсаалт үүсгэх
     stallions = sorted(list(set([h['stallion'].strip() for h in all_horses if h.get('stallion') and h['stallion'].strip()])))
-    
-    # Шүүлтүүрийн утга авах
     selected_stallion = request.args.get('filter_stallion', '').strip()
     
-    # Шүүлтүүр хийх
     if selected_stallion:
         horses = [h for h in all_horses if h.get('stallion', '').strip().lower() == selected_stallion.lower()]
     else:
@@ -56,7 +50,6 @@ def add_horse():
     if not stallion:
         stallion = "Тодорхойгүй"
 
-    # Шинэ адууны өгөгдөл үүсгэх
     new_horse = {
         "username": username,
         "name": name,
@@ -66,7 +59,6 @@ def add_horse():
         "stallion": stallion
     }
     
-    # Өгөгдлийн сан руу шууд хадгалах
     horses_col.insert_one(new_horse)
     return redirect('/')
 
@@ -76,7 +68,6 @@ def delete_horse(horse_name):
         return redirect('/login')
     
     username = session['username']
-    # Тухайн малчны нэр хэлбэрээр нь устгах
     horses_col.delete_one({"username": username, "name": horse_name})
     return redirect('/')
 
