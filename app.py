@@ -14,13 +14,18 @@ cloudinary.config(
     api_secret="986z60OAsv0j05ZHehCHLzBvGhk"
 )
 
-# SQLite Өгөгдлийн сангийн замыг Render дээр 100% найдвартай ажилладаг болгов
-# Кэшийн зөрчлийг арилгахын тулд цоо шинэ 'aduu_perfect.db' нэр өглөө
+# --- POSTGRESQL ӨГӨГДЛИЙН САНГИЙН ТОХИРГОО ---
 if os.environ.get('RENDER'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/aduu_perfect.db'
+    # Таны өгсөн жинхэнэ PostgreSQL URL-ийг шууд энд холбов
+    db_url = "postgresql://aduu_db_crhp_user:80mljWGsg7L5oKOrUIFaRR1rx3Mv4vTQ@dpg-d88igkdckfvc73fn088g-a/aduu_db_crhp"
+    
+    if db_url and db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 else:
+    # Компьютер дээр чинь ажиллахдаа хуучин шигээ SQLite-аа ашиглана
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_perfect.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_local.db')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -58,11 +63,9 @@ def index():
     
     selected_stallion = request.args.get('filter_stallion', '')
     
-    # Хэрэглэгчийн бүх адууг авч азарганы жагсаалт үүсгэх
     all_horses = Horse.query.filter_by(user_id=session['user_id']).all()
     stallions = sorted(list(set([h.stallion for h in all_horses if h.stallion])))
     
-    # Шүүлтүүрийн логикийг зассан хэсэг
     query = Horse.query.filter_by(user_id=session['user_id'])
     if selected_stallion:
         query = query.filter_by(stallion=selected_stallion)
@@ -151,10 +154,8 @@ def horse_detail(horse_id):
         return "Хандах эрхгүй байна!", 403
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
-# --- СЕРВЕР АСААХ ХЭСЭГ (ХҮЧЭЭР ҮҮСГЭХ СҮҮЛИЙН БАТАЛГАА) ---
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # Render асах явцад бүх хүснэгтийг (user, horse) 100% үүсгэнэ
-    
+        db.create_all()
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
