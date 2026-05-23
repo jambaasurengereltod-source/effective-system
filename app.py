@@ -47,6 +47,16 @@ class Horse(db.Model):
     herd_stallion = db.Column(db.String(100), nullable=True)
     image_file = db.Column(db.String(200), nullable=False, default='default')
 
+# 🔥 ЧУХАЛ: Рендер сервер gunicorn-оор асах үед хуучин хүснэгтийг заавал хүчээр устгаж шинэчлэх хэсэг
+with app.app_context():
+    print("--- РЕНДЕР АСАЖ БАЙНА: ӨГӨГДЛИЙН САНГ ХҮЧЭЭР ЦЭВЭРЛЭЛЭЭ ---")
+    try:
+        db.drop_all()   # Хуучин алдаатай, user_id баганагүй хүснэгтийг бүрмөсөн устгана
+        db.create_all() # Цоо шинэ зөв бүтцийг үүсгэнэ
+        print("--- ӨГӨГДЛИЙН САН АМЖИЛТТАЙ ШИНЭЧЛЭГДЛЭЭ ---")
+    except Exception as e:
+        print("Өгөгдлийн сан шинэчлэхэд алдаа гарлаа:", e)
+
 # --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
 @app.route('/sw.js')
@@ -59,7 +69,6 @@ def index():
         return redirect(url_for('login'))
     
     selected_stallion = request.args.get('filter_stallion', '')
-    
     all_horses = Horse.query.filter_by(user_id=session['user_id']).all()
     stallions = sorted(list(set([h.stallion for h in all_horses if h.stallion])))
     
@@ -75,9 +84,7 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
         user = User.query.filter((User.username == username) | (User.email == username)).first()
-        
         if user and user.password == password:
             session['user_id'] = user.id
             session['username'] = user.username
@@ -151,16 +158,6 @@ def horse_detail(horse_id):
         return "Хандах эрхгүй байна!", 403
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
-# --- СЕРВЕР АСАХАД ӨГӨГДЛИЙН САНГ ХҮЧЭЭР ШИНЭЧЛЭХ ХЭСЭГ ---
 if __name__ == '__main__':
-    with app.app_context():
-        print("--- ӨГӨГДЛИЙН САНГ ШИНЭЧЛЭЖ БАЙНА ---")
-        try:
-            db.drop_all()   # Хуучин гацсан, 'user_id' баганагүй хүснэгтийг устгана
-            db.create_all() # Шинэ бүтцийг Постгрес дээр цоо шинээр үүсгэнэ
-            print("--- ӨГӨГДЛИЙН САН АМЖИЛТТАЙ ЗАСАГДЛАА ---")
-        except Exception as e:
-            print("Алдаа гарлаа:", e)
-    
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
