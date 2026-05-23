@@ -1,7 +1,36 @@
+const CACHE_NAME = 'aduu-v1';
+const ASSETS = [
+  '/',
+  '/login',
+  '/register'
+];
+
 self.addEventListener('install', (e) => {
-  console.log('Service Worker Installed');
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (e) => {
-  // Апп онлайн ажиллах тул fetch-ийг зүгээр өнгөрөөнө
+  e.respondWith(
+    fetch(e.request).catch(() => {
+      return caches.match(e.request);
+    })
+  );
 });
