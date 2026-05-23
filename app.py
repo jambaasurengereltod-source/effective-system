@@ -1,169 +1,164 @@
-from flask import Flask, render_template, request, redirect, session
-from flask_sqlalchemy import SQLAlchemy
 import os
+from flask import Flask, render_template, request, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
 import cloudinary
 import cloudinary.uploader
 
 app = Flask(__name__)
-app.secret_key = "super_secret_key_for_aduu_project"
+app.secret_key = "aduu_secret_key_123"
 
-# --- CLOUDINARY ХЭЗЭЭ Ч УСТДАГГҮЙ ЗУРГИЙН САНГИЙН ТОХИРГОО ---
-cloudinary.config( 
-  cloud_name = "dnaspppgk",
-  api_key = "338716463513465",
-  api_secret = "-7AgTcwR9KP5OutNo7MGhL1w3Iw",
-  secure = True
+# Cloudinary Тохиргоо
+cloudinary.config(
+    cloud_name="dnaspppgk",
+    api_key="188174488349258",
+    api_secret="986z60OAsv0j05ZHehCHLzBvGhk"
 )
 
-# Өгөгдлийн сангийн холболт
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///aduu.db'
+# SQLite Өгөгдлийн сангийн тохиргоо
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
 
-# --- ХҮСНЭГТҮҮД ---
+# --- ӨГӨГДЛИЙН САНГИЙН МОДЕЛУУД ---
+
+# Хэрэглэгчийн модел
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), nullable=False)
+    password = db.Column(db.String(120), nullable=False)
 
+# Адууны модел
 class Horse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    age = db.Column(db.String(50), nullable=False) 
+    age = db.Column(db.String(50), nullable=False)
     color = db.Column(db.String(50), nullable=False)
     mark = db.Column(db.String(100), nullable=True)
-    stallion = db.Column(db.String(100), nullable=False) 
-    dam = db.Column(db.String(100), nullable=True, default="Тодорхойгүй") 
-    herd_stallion = db.Column(db.String(100), nullable=True, default="Тодорхойгүй") 
-    image_file = db.Column(db.String(500), nullable=True, default='default') # Онлайн линк хадгалах урт багана
+    stallion = db.Column(db.String(100), nullable=False)  # Эцэг азарга
+    dam = db.Column(db.String(100), nullable=True)       # Эх гүү
+    herd_stallion = db.Column(db.String(100), nullable=True) # Одоо хураасан азарга
+    image_file = db.Column(db.String(200), nullable=False, default='default')
 
-with app.app_context():
-    db.create_all()
+# --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
+# Нүүр хуудас (Адууны жагсаалт харах, шүүх)
 @app.route('/')
 def index():
-    if 'username' not in session:
-        return redirect('/login')
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
     
-    username = session['username']
-    all_horses = Horse.query.filter_by(username=username).all()
+    selected_stallion = request.args.get('filter_stallion', '')
     
-    stallions = sorted(list(set([h.stallion.strip() for h in all_horses if h.stallion and h.stallion.strip()])))
-    selected_stallion = request.args.get('filter_stallion', '').strip()
+    # Зөвхөн тухайн нэвтэрсэн хэрэглэгчийн адуунуудыг авна
+    query = Horse.query.filter_by(user_id=session['user_id'])
+    
+    # Шүүлтүүрт зориулж бүх эцэг азаргануудын нэрийг давхардахгүй авна
+    all_horses = Horse.query.filter_by(user_id=session['user_id']).all()
+    stallions = sorted(list(set([h.stallion for h in all_horses if h.stallion])))
     
     if selected_stallion:
-        horses = Horse.query.filter_by(username=username, stallion=selected_stallion).all()
-    else:
-        horses = all_horses
-
+        query = query.filter_by(stallion=selected_stallion)
+        
+    horses = query.all()
     return render_template('index.html', horses=horses, stallions=stallions, selected_stallion=selected_stallion)
 
-@app.route('/add', methods=['POST'])
-def add_horse():
-    if 'username' not in session:
-        return redirect('/login')
-    
-    username = session['username']
-    name = request.form.get('name')
-    age = request.form.get('age') 
-    color = request.form.get('color')
-    mark = request.form.get('mark', '')
-    stallion = request.form.get('stallion', '').strip() or "Тодорхойгүй"
-    dam = request.form.get('dam', '').strip() or "Тодорхойгүй" 
-    herd_stallion = request.form.get('herd_stallion', '').strip() or "Тодорхойгүй" 
-
-    image_url = 'default'
-    if 'image' in request.files:
-        file = request.files['image']
-        if file and file.filename != '':
-            # Зургийг Cloudinary руу онлайн хадгалахаар илгээнэ
-            upload_result = cloudinary.uploader.upload(file)
-            image_url = upload_result['secure_url'] # Онлайн линкийг нь баазад хадгална
-
-    new_horse = Horse(
-        username=username, name=name, age=age, color=color, mark=mark,
-        stallion=stallion, dam=dam, herd_stallion=herd_stallion, image_file=image_url
-    )
-    db.session.add(new_horse)
-    db.session.commit()
-    return redirect('/')
-
-@app.route('/delete/<int:horse_id>')
-def delete_horse(horse_id):
-    if 'username' not in session:
-        return redirect('/login')
-    
-    username = session['username']
-    horse = Horse.query.filter_by(id=horse_id, username=username).first()
-    if horse:
-        # Устгах үед Cloudinary дээрх зургийг нь цуг цэвэрлэнэ
-        if horse.image_file != 'default':
-            try:
-                public_id = horse.image_file.split('/')[-1].split('.')[0]
-                cloudinary.uploader.destroy(public_id)
-            except:
-                pass
-        db.session.delete(horse)
-        db.session.commit()
-    return redirect('/')
-
+# Нэвтрэх хуудас
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        login_input = request.form.get('username').strip()
-        password = request.form.get('password')
-        user = User.query.filter((User.username == login_input) | (User.email == login_input)).first()
-        if user and user.password == password:
+        username = request.form['username']
+        password = request.form['password']
+        
+        user = User.query.filter((User.username == username) | (User.email == username)).first()
+        
+        if user and user.password == password:  # Жич: Практикт нууц үгийг hash хийх ёстой
+            session['user_id'] = user.id
             session['username'] = user.username
-            return redirect('/')
-        return render_template('login.html', error="Нэвтрэх нэр эсвэл нууц үг буруу байна!")
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error="Хэрэглэгчийн нэр эсвэл нууц үг буруу байна.")
+            
     return render_template('login.html')
 
+# Бүртгүүлэх хуудас
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username').strip()
-        email = request.form.get('email').strip()
-        password = request.form.get('password')
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
         
-        if User.query.filter_by(username=username).first():
-            return render_template('register.html', error="Энэ хэрэглэгчийн нэр бүртгэлтэй байна!")
-        if User.query.filter_by(email=email).first():
-            return render_template('register.html', error="Энэ и-мэйл хаяг аль хэдийн бүртгэгдсэн байна!")
+        existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+        if existing_user:
+            return render_template('register.html', error="Хэрэглэгчийн нэр эсвэл и-мэйл аль хэдийн бүртгэгдсэн байна.")
             
-        new_user = User(username=username, email=email, password=password)
+        new_user = User.new_user = User(username=username, email=email, password=password)
         db.session.add(new_user)
         db.session.commit()
-        session['username'] = username
-        return redirect('/')
+        return render_template('login.html', success="Бүртгэл амжилттай! Та нэвтэрч орно уу.")
+        
     return render_template('register.html')
 
-@app.route('/reset-password', methods=['GET', 'POST'])
-def reset_password():
-    if request.method == 'POST':
-        email = request.form.get('email').strip()
-        new_password = request.form.get('new_password')
-        user = User.query.filter_by(email=email).first()
-        if user:
-            user.password = new_password
-            db.session.commit()
-            return render_template('login.html', success="Нууц үг амжилттай солигдлоо! Нэвтэрч орно уу.")
-        return render_template('reset_password.html', error="Энэ и-мэйл хаяг бүртгэлгүй байна!")
-    return render_template('reset_password.html')
-
+# Системээс гарах
 @app.route('/logout')
 def logout():
+    session.pop('user_id', None)
     session.pop('username', None)
-    return redirect('/login')
+    return redirect(url_for('login'))
 
-# --- РЕНДЕР СЕРВЕРИЙН ПОРТ ХОЛБОЛТЫГ ЗАССАН ХЭСЭГ ---
+# Шинэ адуу нэмэх суваг
+@app.route('/add', methods=['POST'])
+def add_horse():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    name = request.form['name']
+    age = request.form['age']
+    color = request.form['color']
+    mark = request.form.get('mark', '')
+    stallion = request.form['stallion']
+    dam = request.form.get('dam', '')
+    herd_stallion = request.form.get('herd_stallion', '')
+    
+    image_url = 'default'
+    
+    # Зургийн файл шалгах, Cloudinary руу хуулах
+    if 'image' in request.files:
+        file = request.files['image']
+        if file.filename != '':
+            try:
+                upload_result = cloudinary.uploader.upload(file)
+                image_url = upload_result['secure_url']
+            except Exception as e:
+                print("Зураг хуулахад алдаа гарлаа:", e)
+
+    new_horse = Horse(
+        user_id=session['user_id'],
+        name=name, age=age, color=color, mark=mark,
+        stallion=stallion, dam=dam, herd_stallion=herd_stallion,
+        image_file=image_url
+    )
+    db.session.add(new_horse)
+    db.session.commit()
+    return redirect(url_for('index'))
+
+# Адууны дэлгэрэнгүй хуудас харах
+@app.route('/horse/<int:horse_id>')
+def horse_detail(horse_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    horse = Horse.query.get_or_404(horse_id)
+    if horse.user_id != session['user_id']:
+        return "Хандах эрхгүй байна!", 403
+    return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
+
+# --- СЕРВЕР АСААХ ХЭСЭГ (RENDER-Т ЗОРИУЛСАН ПОРТ ТОХИРГОО) ---
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    with app.app_context():
+        db.create_all()  # Өгөгдлийн сан байхгүй бол шинээр үүсгэнэ
+    
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
