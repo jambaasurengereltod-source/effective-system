@@ -47,9 +47,22 @@
                 <div class="col-md-4">
                     <input type="text" name="name" class="form-control" placeholder="Адууны нэр" required>
                 </div>
+                
                 <div class="col-md-4">
-                    <input type="text" name="age" class="form-control" placeholder="Нас (Жишээ нь: Шүдлэн)" required>
+                    <select name="age" class="form-select" required>
+                        <option value="" disabled selected hidden>Нас сонгох...</option>
+                        <option value="Унага">Унага</option>
+                        <option value="Даага">Даага</option>
+                        <option value="Шүдлэн">Шүдлэн</option>
+                        <option value="Хязаалан">Хязаалан</option>
+                        <option value="Соёолон">Соёолон</option>
+                        <option value="Хавчиг">Хавчиг</option>
+                        <option value="Их нас">Их нас</option>
+                        <option value="Азарга">Азарга</option>
+                        <option value="Гүү">Гүү</option>
+                    </select>
                 </div>
+                
                 <div class="col-md-4">
                     <input type="text" name="color" class="form-control" placeholder="Зүс" required>
                 </div>
