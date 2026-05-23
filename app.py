@@ -14,13 +14,9 @@ cloudinary.config(
     api_secret="986z60OAsv0j05ZHehCHLzBvGhk"
 )
 
-# SQLite Өгөгдлийн сангийн замыг Render-т зориулж хамгийн найдвартай болгов
-if os.environ.get('RENDER'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/aduu_final.db'
-else:
-    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_final.db')
-
+# SQLite Өгөгдлийн сангийн тогтвортой тохиргоо
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -44,12 +40,6 @@ class Horse(db.Model):
     herd_stallion = db.Column(db.String(100), nullable=True)
     image_file = db.Column(db.String(200), nullable=False, default='default')
 
-# --- АВТОМАТ ҮҮСГЭХ ХЭСЭГ (ХАМГИЙН ЧУХАЛ ЗАСВАР) ---
-# Ирж буй анхны хүсэлт болгоны өмнө хүснэгтүүдийг шалгаж үүсгэнэ
-@app.before_request
-def create_tables():
-    db.create_all()
-
 # --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
 @app.route('/sw.js')
@@ -62,11 +52,13 @@ def index():
         return redirect(url_for('login'))
     
     selected_stallion = request.args.get('filter_stallion', '')
-    query = Horse.query.filter_by(user_id=session['user_id'])
     
+    # Тухайн хэрэглэгчийн бүх адууг авч азаргануудын цэсийг бэлдэх
     all_horses = Horse.query.filter_by(user_id=session['user_id']).all()
     stallions = sorted(list(set([h.stallion for h in all_horses if h.stallion])))
     
+    # Шүүлтүүрийн логикийг зассан хэсэг
+    query = Horse.query.filter_by(user_id=session['user_id'])
     if selected_stallion:
         query = query.filter_by(stallion=selected_stallion)
         
@@ -155,5 +147,8 @@ def horse_detail(horse_id):
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Анхлан зөв бүтэц рүү буцаан шилжүүлэв
+    
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
