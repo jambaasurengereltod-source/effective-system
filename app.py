@@ -47,15 +47,11 @@ class Horse(db.Model):
     herd_stallion = db.Column(db.String(100), nullable=True)
     image_file = db.Column(db.String(200), nullable=False, default='default')
 
-# 🔥 ЧУХАЛ: Рендер сервер gunicorn-оор асах үед хуучин хүснэгтийг заавал хүчээр устгаж шинэчлэх хэсэг
 with app.app_context():
-    print("--- РЕНДЕР АСАЖ БАЙНА: ӨГӨГДЛИЙН САНГ ХҮЧЭЭР ЦЭВЭРЛЭЛЭЭ ---")
     try:
-        db.drop_all()   # Хуучин алдаатай, user_id баганагүй хүснэгтийг бүрмөсөн устгана
-        db.create_all() # Цоо шинэ зөв бүтцийг үүсгэнэ
-        print("--- ӨГӨГДЛИЙН САН АМЖИЛТТАЙ ШИНЭЧЛЭГДЛЭЭ ---")
+        db.create_all()
     except Exception as e:
-        print("Өгөгдлийн сан шинэчлэхэд алдаа гарлаа:", e)
+        print("Өгөгдлийн сан үүсгэхэд алдаа гарлаа:", e)
 
 # --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
@@ -121,14 +117,17 @@ def add_horse():
     if 'user_id' not in session:
         return redirect(url_for('login'))
         
-    name = request.form['name']
-    age = request.form['age']
-    color = request.form['color']
-    mark = request.form.get('mark', '')
-    stallion = request.form['stallion']
-    dam = request.form.get('dam', '')
-    herd_stallion = request.form.get('herd_stallion', '')
+    name = request.form.get('name', '').strip()
+    age = request.form.get('age', 'Унага').strip()
+    color = request.form.get('color', '').strip()
+    mark = request.form.get('mark', '').strip()
+    stallion = request.form.get('stallion', '').strip()
+    dam = request.form.get('dam', '').strip()
+    herd_stallion = request.form.get('herd_stallion', '').strip()
     
+    if not name or not stallion or not color:
+        return redirect(url_for('index'))
+
     image_url = 'default'
     if 'image' in request.files:
         file = request.files['image']
@@ -149,6 +148,17 @@ def add_horse():
     db.session.commit()
     return redirect(url_for('index'))
 
+# 🔥 УСТГАХ СУВАГ
+@app.route('/delete/<int:horse_id>', methods=['POST'])
+def delete_horse(horse_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    horse = Horse.query.get_or_404(horse_id)
+    if horse.user_id == session['user_id']:
+        db.session.delete(horse)
+        db.session.commit()
+    return redirect(url_for('index'))
+
 @app.route('/horse/<int:horse_id>')
 def horse_detail(horse_id):
     if 'user_id' not in session:
@@ -156,7 +166,7 @@ def horse_detail(horse_id):
     horse = Horse.query.get_or_404(horse_id)
     if horse.user_id != session['user_id']:
         return "Хандах эрхгүй байна!", 403
-    return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
+    return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><p>Эх: {horse.dam}</p><br><a href='/'>Буцах</a>"
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
