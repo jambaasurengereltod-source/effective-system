@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 import cloudinary
 import cloudinary.uploader
@@ -22,14 +22,12 @@ db = SQLAlchemy(app)
 
 # --- ӨГӨГДЛИЙН САНГИЙН МОДЕЛУУД ---
 
-# Хэрэглэгчийн модел
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
 
-# Адууны модел
 class Horse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -37,25 +35,26 @@ class Horse(db.Model):
     age = db.Column(db.String(50), nullable=False)
     color = db.Column(db.String(50), nullable=False)
     mark = db.Column(db.String(100), nullable=True)
-    stallion = db.Column(db.String(100), nullable=False)  # Эцэг азарга
-    dam = db.Column(db.String(100), nullable=True)       # Эх гүү
-    herd_stallion = db.Column(db.String(100), nullable=True) # Одоо хураасан азарга
+    stallion = db.Column(db.String(100), nullable=False)
+    dam = db.Column(db.String(100), nullable=True)
+    herd_stallion = db.Column(db.String(100), nullable=True)
     image_file = db.Column(db.String(200), nullable=False, default='default')
 
 # --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
-# Нүүр хуудас (Адууны жагсаалт харах, шүүх)
+# Утасны Chrome интернетгүй үед файлыг уншиж апп болгох хэсэг
+@app.route('/sw.js')
+def serve_sw():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'sw.js', mimetype='application/javascript')
+
 @app.route('/')
 def index():
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
     selected_stallion = request.args.get('filter_stallion', '')
-    
-    # Зөвхөн тухайн нэвтэрсэн хэрэглэгчийн адуунуудыг авна
     query = Horse.query.filter_by(user_id=session['user_id'])
     
-    # Шүүлтүүрт зориулж бүх эцэг азаргануудын нэрийг давхардахгүй авна
     all_horses = Horse.query.filter_by(user_id=session['user_id']).all()
     stallions = sorted(list(set([h.stallion for h in all_horses if h.stallion])))
     
@@ -65,25 +64,23 @@ def index():
     horses = query.all()
     return render_template('index.html', horses=horses, stallions=stallions, selected_stallion=selected_stallion)
 
-# Нэвтрэх хуудас
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         
+        # Хэрэглэгчийн нэр эсвэл и-мэйлээр хайх хэсэг
         user = User.query.filter((User.username == username) | (User.email == username)).first()
         
-        if user and user.password == password:  # Жич: Практикт нууц үгийг hash хийх ёстой
+        if user and user.password == password:
             session['user_id'] = user.id
             session['username'] = user.username
             return redirect(url_for('index'))
         else:
             return render_template('login.html', error="Хэрэглэгчийн нэр эсвэл нууц үг буруу байна.")
-            
     return render_template('login.html')
 
-# Бүртгүүлэх хуудас
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -95,21 +92,18 @@ def register():
         if existing_user:
             return render_template('register.html', error="Хэрэглэгчийн нэр эсвэл и-мэйл аль хэдийн бүртгэгдсэн байна.")
             
-        new_user = User.new_user = User(username=username, email=email, password=password)
+        new_user = User(username=username, email=email, password=password)
         db.session.add(new_user)
         db.session.commit()
         return render_template('login.html', success="Бүртгэл амжилттай! Та нэвтэрч орно уу.")
-        
     return render_template('register.html')
 
-# Системээс гарах
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
     session.pop('username', None)
     return redirect(url_for('login'))
 
-# Шинэ адуу нэмэх суваг
 @app.route('/add', methods=['POST'])
 def add_horse():
     if 'user_id' not in session:
@@ -124,8 +118,6 @@ def add_horse():
     herd_stallion = request.form.get('herd_stallion', '')
     
     image_url = 'default'
-    
-    # Зургийн файл шалгах, Cloudinary руу хуулах
     if 'image' in request.files:
         file = request.files['image']
         if file.filename != '':
@@ -145,7 +137,6 @@ def add_horse():
     db.session.commit()
     return redirect(url_for('index'))
 
-# Адууны дэлгэрэнгүй хуудас харах
 @app.route('/horse/<int:horse_id>')
 def horse_detail(horse_id):
     if 'user_id' not in session:
@@ -155,10 +146,10 @@ def horse_detail(horse_id):
         return "Хандах эрхгүй байна!", 403
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
-# --- СЕРВЕР АСААХ ХЭСЭГ (RENDER-Т ЗОРИУЛСАН ПОРТ ТОХИРГОО) ---
+# --- СЕРВЕР АСААХ ХЭСЭГ (ӨГӨГДЛИЙН САНГ ХҮЧЭЭР ҮҮСГЭХ ЗАСВАР) ---
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # Өгөгдлийн сан байхгүй бол шинээр үүсгэнэ
+        db.create_all()  # Хэрэв хүснэгтүүд байхгүй бол Render асахдаа шууд үүсгэнэ
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
