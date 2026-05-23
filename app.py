@@ -14,9 +14,14 @@ cloudinary.config(
     api_secret="986z60OAsv0j05ZHehCHLzBvGhk"
 )
 
-# SQLite Өгөгдлийн сангийн тохиргоо
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu.db')
+# SQLite Өгөгдлийн сангийн замыг Render-т зориулж хамгийн найдвартай болгов
+# Хэрэв Render дээр ажиллаж байвал /tmp хавтас ашиглана (эрхийн алдаа гарахаас сэргийлнэ)
+if os.environ.get('RENDER'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/aduu.db'
+else:
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu.db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -42,7 +47,6 @@ class Horse(db.Model):
 
 # --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
-# Утасны Chrome интернетгүй үед файлыг уншиж апп болгох хэсэг
 @app.route('/sw.js')
 def serve_sw():
     return send_from_directory(os.path.join(app.root_path, 'static'), 'sw.js', mimetype='application/javascript')
@@ -70,7 +74,6 @@ def login():
         username = request.form['username']
         password = request.form['password']
         
-        # Хэрэглэгчийн нэр эсвэл и-мэйлээр хайх хэсэг
         user = User.query.filter((User.username == username) | (User.email == username)).first()
         
         if user and user.password == password:
@@ -146,10 +149,9 @@ def horse_detail(horse_id):
         return "Хандах эрхгүй байна!", 403
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
-# --- СЕРВЕР АСААХ ХЭСЭГ (ӨГӨГДЛИЙН САНГ ХҮЧЭЭР ҮҮСГЭХ ЗАСВАР) ---
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # Хэрэв хүснэгтүүд байхгүй бол Render асахдаа шууд үүсгэнэ
+        db.create_all()  # Асахдаа хүснэгтийг заавал бэлдэнэ
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
