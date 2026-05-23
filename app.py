@@ -14,9 +14,14 @@ cloudinary.config(
     api_secret="986z60OAsv0j05ZHehCHLzBvGhk"
 )
 
-# SQLite Өгөгдлийн сангийн тогтвортой тохиргоо
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_app.db')
+# SQLite Өгөгдлийн сангийн замыг Render дээр 100% найдвартай ажилладаг болгов
+# Кэшийн зөрчлийг арилгахын тулд цоо шинэ 'aduu_perfect.db' нэр өглөө
+if os.environ.get('RENDER'):
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/aduu_perfect.db'
+else:
+    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_perfect.db')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -53,7 +58,7 @@ def index():
     
     selected_stallion = request.args.get('filter_stallion', '')
     
-    # Тухайн хэрэглэгчийн бүх адууг авч азаргануудын цэсийг бэлдэх
+    # Хэрэглэгчийн бүх адууг авч азарганы жагсаалт үүсгэх
     all_horses = Horse.query.filter_by(user_id=session['user_id']).all()
     stallions = sorted(list(set([h.stallion for h in all_horses if h.stallion])))
     
@@ -146,9 +151,10 @@ def horse_detail(horse_id):
         return "Хандах эрхгүй байна!", 403
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
+# --- СЕРВЕР АСААХ ХЭСЭГ (ХҮЧЭЭР ҮҮСГЭХ СҮҮЛИЙН БАТАЛГАА) ---
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()  # Анхлан зөв бүтэц рүү буцаан шилжүүлэв
+        db.create_all()  # Render асах явцад бүх хүснэгтийг (user, horse) 100% үүсгэнэ
     
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
