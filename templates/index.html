@@ -2,109 +2,104 @@
 <html lang="mn">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Адуу Бүртгэлийн Систем</title>
+    <title>Адууны Бүртгэл</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
-        body { background-color: #f8f9fa; }
-        .card { border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .table-responsive { background: white; border-radius: 10px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .horse-card { transition: 0.3s; border: none; border-radius: 12px; overflow: hidden; }
+        .horse-card:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .horse-img { height: 220px; object-fit: cover; width: 100%; }
+        .no-img-box { height: 220px; background-color: #e9ecef; display: flex; align-items: center; justify-content: center; color: #6c757d; font-weight: 500; }
     </style>
 </head>
-<body class="py-4">
-    <div class="container" style="max-width: 800px;">
-        <div class="card p-4 mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h4 mb-0">🐴 Адуу Бүртгэлийн Систем</h2>
-                <div>
-                    <span class="badge bg-success p-2">Малчин: {{ session['username'] }}</span>
-                    <a href="/logout" class="btn btn-danger btn-sm ms-2">Гарах</a>
-                </div>
+<body class="bg-light">
+    <div class="container my-5">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold text-dark">🐴 Адууны Бүртгэлийн Систем</h2>
+            <div>
+                <span class="badge bg-dark p-2 me-2 fs-6">Малчин: {{ session['username'] }}</span>
+                <a href="/logout" class="btn btn-danger btn-sm fw-bold">Системээс гарах</a>
             </div>
+        </div>
+
+        <div class="card p-4 mb-4 shadow-sm" style="border-radius: 12px;">
+            <h4 class="fw-bold text-secondary mb-3">Шинэ адуу бүртгэх</h4>
             
-            <form action="/add" method="POST" class="row g-3">
-                <div class="col-md-6">
-                    <input type="text" name="name" class="form-control" placeholder="Адууны нэр / зүс шинж" required>
+            <form action="/add" method="POST" enctype="multipart/form-data" class="row g-3">
+                <div class="col-md-3">
+                    <input type="text" name="name" class="form-control" placeholder="Адууны нэр / Тамга" required>
                 </div>
-                <div class="col-md-6">
-                    <select name="age" class="form-select" required>
-                        <option value="" disabled selected>Насны ангилал сонгох</option>
-                        <option value="Унага">Унага</option>
-                        <option value="Даага">Даага</option>
-                        <option value="Шүдлэн">Шүдлэн</option>
-                        <option value="Хязаалан">Хязаалан</option>
-                        <option value="Соёолон">Соёолон</option>
-                        <option value="Хавчиг">Хавчиг</option>
-                        <option value="Их нас">Их нас</option>
-                        <option value="Азарга">Азарга</option>
-                        <option value="Гүү">Гүү</option>
-                    </select>
+                <div class="col-md-2">
+                    <input type="text" name="age" class="form-control" placeholder="Нас (жишээ нь: Шүдлэн)" required>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-2">
                     <input type="text" name="color" class="form-control" placeholder="Зүс" required>
                 </div>
-                <div class="col-md-6">
-                    <input type="text" name="mark" class="form-control" placeholder="Тамга / Шинж тэмдэг">
+                <div class="col-md-2">
+                    <input type="text" name="mark" class="form-control" placeholder="Тэмдэг (Сартай г.м)">
                 </div>
-                <div class="col-12">
-                    <input type="text" name="stallion" class="form-control" placeholder="Аль азарганы адуу вэ? (Азарганы нэр)" required>
+                <div class="col-md-3">
+                    <input type="text" name="stallion" class="form-control" placeholder="Эцэг азарга">
                 </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-success w-100">Сүрэгт нэмэх</button>
+                
+                <div class="col-md-9">
+                    <label class="form-label text-muted small mb-1 fw-bold">Адууны зураг сонгох (.jpg, .jpeg, .png)</label>
+                    <input type="file" name="image" class="form-control" accept="image/*">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100 fw-bold py-2">Шинээр бүртгэх</button>
                 </div>
             </form>
         </div>
 
-        <h3 class="h5 mb-3">Бүртгэлтэй адууны жагсаалт</h3>
-        
-        <form method="GET" action="/" class="mb-3 row g-2">
-            <div class="col-auto">
-                <label class="col-form-label text-muted small">Азаргаар хувааж харах:</label>
-            </div>
-            <div class="col">
-                <select name="filter_stallion" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">Бүх адууг харах</option>
-                    {% for st in stallions %}
-                    <option value="{{ st }}" {% if selected_stallion == st %}selected{% endif %}>{{ st }}</option>
+        <div class="card p-3 mb-4 shadow-sm" style="border-radius: 10px;">
+            <form action="/" method="GET" class="d-flex gap-3 align-items-center">
+                <label class="fw-bold text-secondary">Азаргаар шүүж харах:</label>
+                <select name="filter_stallion" class="form-select w-auto" onchange="this.form.submit()">
+                    <option value="">Бүх адуунууд</option>
+                    {% for s in stallions %}
+                    <option value="{{ s }}" {% if selected_stallion == s %}selected{% endif %}>{{ s }}</option>
                     {% endfor %}
                 </select>
-            </div>
-        </form>
-
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Нэр/Шинж</th>
-                        <th>Нас</th>
-                        <th>Зүс</th>
-                        <th>Тамга</th>
-                        <th>Хураагдсан Азарга</th>
-                        <th>Үйлдэл</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for horse in horses %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td><strong>{{ horse.name }}</strong></td>
-                        <td><span class="badge bg-secondary">{{ horse.age }}</span></td>
-                        <td>{{ horse.color }}</td>
-                        <td>{{ horse.mark or '-' }}</td>
-                        <td class="text-success fw-bold">{{ horse.stallion }}</td>
-                        <td>
-                            <a href="/delete/{{ horse.id }}" class="btn btn-danger btn-sm">Устгах</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" class="text-center text-muted py-3">Адуу бүртгэгдээгүй байна.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                {% if selected_stallion %}
+                    <a href="/" class="btn btn-sm btn-secondary fw-bold">Шүүлтүүр цуцлах</a>
+                {% endif %}
+            </form>
         </div>
+
+        <div class="row row-cols-1 row-cols-md-3 g-4">
+            {% for horse in horses %}
+            <div class="col">
+                <div class="card h-100 horse-card shadow-sm">
+                    
+                    {% if horse.image_file == 'default_horse.jpg' %}
+                        <div class="no-img-box">
+                            <span>📷 Зураг оруулаагүй</span>
+                        </div>
+                    {% else %}
+                        <img src="{{ url_for('static', filename='uploads/' + horse.image_file) }}" class="horse-img" alt="Адууны зураг">
+                    {% endif %}
+                    
+                    <div class="card-body bg-white">
+                        <h4 class="card-title fw-bold text-success mb-3">{{ horse.name }}</h4>
+                        <p class="card-text mb-2"><strong>Нас:</strong> {{ horse.age }}</p>
+                        <p class="card-text mb-2"><strong>Зүс:</strong> {{ horse.color }}</p>
+                        <p class="card-text mb-2"><strong>Тэмдэг:</strong> {{ horse.mark or 'Байхгүй' }}</p>
+                        <p class="card-text mb-3"><strong>Эцэг азарга:</strong> <span class="badge bg-info text-dark fs-6">{{ horse.stallion }}</span></p>
+                        <hr>
+                        <div class="text-end">
+                            <a href="/delete/{{ horse.id }}" class="btn btn-sm btn-outline-danger fw-bold" onclick="return confirm('Эг адууг бүртгэлээс устгах уу?')">Устгах</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12 text-center my-5">
+                <p class="text-muted fs-5">Танай бүртгэлд одоогоор адуу байхгүй байна. Дээд талын формоор адуу нэмнэ үү.</p>
+            </div>
+            {% endfor %}
+        </div>
+
     </div>
 </body>
 </html>

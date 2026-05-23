@@ -1,12 +1,25 @@
 from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
 import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_aduu_project"
 
-# Render-ийн PostgreSQL өгөгдлийн сангийн линкийг уншина. 
-# Хэрэв олдохгүй бол локал туршилтын sqlite сан үүсгэнэ.
+# --- ЗУРАГ ХАДГАЛАХ ТОХИРГОО ---
+# static/uploads хавтсыг зураг хадгалах үндсэн газар болгож заана
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# Зургийн файлын дээд хэмжээг 16MB-аар хязгаарлана (Сервер гацахаас сэргийлнэ)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  
+
+# Зөвхөн дараах өргөтгөлтэй зургийн файлуудыг зөвшөөрнө
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# --- ӨГӨГДЛИЙН САНГИЙН ТОХИРГОО ---
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -16,12 +29,13 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- ӨГӨГДЛИЙН САНГИЙН ХҮСНЭГТҮҮД ---
+# Хэрэглэгчийн хүснэгт
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(80), nullable=False)
 
+# Адууны хүснэгт
 class Horse(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), nullable=False)
@@ -30,12 +44,18 @@ class Horse(db.Model):
     color = db.Column(db.String(50), nullable=False)
     mark = db.Column(db.String(100), nullable=True)
     stallion = db.Column(db.String(100), nullable=False)
+    # ШИНЭ: Зургийн файлын нэрийг хадгалах багана (Зураггүй үед default_horse.jpg-ийг харуулна)
+    image_file = db.Column(db.String(200), nullable=True, default='default_horse.jpg') 
 
-# Программ асах үед хүснэгтүүдийг автоматаар үүсгэх
+# Дээрх uploads хавтас байхгүй бол систем өөрөө автомат үүсгэнэ
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 with app.app_context():
     db.create_all()
 
-# --- ВЭБ САЙТЫН МАРШРУТУУД (ROUTES) ---
+# --- ВЭБ САЙТЫН МАРШРУТУУД ---
+
 @app.route('/')
 def index():
     if 'username' not in session:
@@ -69,13 +89,28 @@ def add_horse():
     if not stallion:
         stallion = "Тодорхойгүй"
 
+    # --- ЗУРАГ ХҮЛЭЭН АВАХ ШИНЭ ХЭСЭГ ---
+    image_name = 'default_horse.jpg' # Хэрэглэгч зураг оруулахгүй бол ашиглах үндсэн нэр
+    
+    if 'image' in request.files:
+        file = request.files['image']
+        # Хэрэглэгч файл сонгосон бөгөөд зөвшөөрөгдсөн зураг мөн эсэхийг шалгана
+        if file and file.filename != '' and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # Өөр өөр малчид ижил нэртэй зураг оруулбал давхцахаас сэргийлж урд нь хэрэглэгчийн нэрийг залгана
+            unique_filename = f"{username}_{filename}"
+            # Файлыг static/uploads хавтсанд хадгална
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
+            image_name = unique_filename
+
     new_horse = Horse(
         username=username,
         name=name,
         age=age,
         color=color,
         mark=mark,
-        stallion=stallion
+        stallion=stallion,
+        image_file=image_name # Зургийн нэрийг өгөгдлийн санд хадгалах
     )
     db.session.add(new_horse)
     db.session.commit()
@@ -89,6 +124,12 @@ def delete_horse(horse_id):
     username = session['username']
     horse = Horse.query.filter_by(id=horse_id, username=username).first()
     if horse:
+        # Хэрэв устгах гэж буй адуу зурагтай байсан бол сервер дээрх зургийн файлыг нь давхар устгана
+        if horse.image_file != 'default_horse.jpg':
+            try:
+                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], horse.image_file))
+            except:
+                pass
         db.session.delete(horse)
         db.session.commit()
     return redirect('/')
