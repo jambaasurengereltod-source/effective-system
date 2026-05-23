@@ -25,10 +25,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Хүснэгтүүд
+# --- ӨГӨГДЛИЙН САНГИЙН ХҮСНЭГТҮҮД ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False) # ШИНЭ: И-мэйл багана
     password = db.Column(db.String(80), nullable=False)
 
 class Horse(db.Model):
@@ -118,28 +119,50 @@ def delete_horse(horse_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username').strip()
+        # Хэрэглэгч нэр эсвэл И-мэйлийн алинаар нь ч нэвтэрч болно
+        login_input = request.form.get('username').strip()
         password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
+        
+        user = User.query.filter((User.username == login_input) | (User.email == login_input)).first()
         if user and user.password == password:
-            session['username'] = username
+            session['username'] = user.username
             return redirect('/')
-        return render_template('login.html', error="Хэрэглэгчийн нэр эсвэл нууц үг буруу байна!")
+        return render_template('login.html', error="Нэвтрэх нэр эсвэл нууц үг буруу байна!")
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
         username = request.form.get('username').strip()
+        email = request.form.get('email').strip()
         password = request.form.get('password')
+        
         if User.query.filter_by(username=username).first():
             return render_template('register.html', error="Энэ хэрэглэгчийн нэр бүртгэлтэй байна!")
-        new_user = User(username=username, password=password)
+        if User.query.filter_by(email=email).first():
+            return render_template('register.html', error="Энэ и-мэйл хаяг аль хэдийн бүртгэгдсэн байна!")
+            
+        new_user = User(username=username, email=email, password=password)
         db.session.add(new_user)
         db.session.commit()
         session['username'] = username
         return redirect('/')
     return render_template('register.html')
+
+@app.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        email = request.form.get('email').strip()
+        new_password = request.form.get('new_password')
+        
+        # И-мэйл хаягаар нь хайж нууц үгийг солино
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.password = new_password
+            db.session.commit()
+            return render_template('login.html', success="Нууц үг амжилттай солигдлоо! Шинэ нууц үгээрээ нэвтэрнэ үү.")
+        return render_template('reset_password.html', error="Энэ и-мэйл хаяг бүртгэлгүй байна!")
+    return render_template('reset_password.html')
 
 @app.route('/logout')
 def logout():
