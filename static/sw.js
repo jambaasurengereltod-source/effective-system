@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aduu-v1';
+const CACHE_NAME = 'aduu-v2';
 const ASSETS = [
   '/',
   '/login',

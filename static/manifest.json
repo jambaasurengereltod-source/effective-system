@@ -2,11 +2,11 @@
   "name": "Адууны Бүртгэл",
   "short_name": "Адуу",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#198754",
   "orientation": "portrait",
-  "id": "/",
   "icons": [
     {
       "src": "https://res.cloudinary.com/dnaspppgk/image/upload/v1716439200/horse_icon.png",
