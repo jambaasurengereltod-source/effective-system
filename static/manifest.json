@@ -5,17 +5,20 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#198754",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
+  "id": "/",
   "icons": [
     {
       "src": "https://res.cloudinary.com/dnaspppgk/image/upload/v1716439200/horse_icon.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "https://res.cloudinary.com/dnaspppgk/image/upload/v1716439200/horse_icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
