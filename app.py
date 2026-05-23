@@ -14,13 +14,12 @@ cloudinary.config(
     api_secret="986z60OAsv0j05ZHehCHLzBvGhk"
 )
 
-# SQLite Өгөгдлийн сангийн замыг Render-ийн орчинд зориулж хамгийн найдвартай болгов
+# SQLite Өгөгдлийн сангийн замыг Render-т зориулж хамгийн найдвартай болгов
 if os.environ.get('RENDER'):
-    # Рендер дээр ажиллаж байвал /tmp хавтас руу aduu_new.db гэж хүчээр шинээр үүсгэнэ
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/aduu_new.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/aduu_final.db'
 else:
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_new.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_final.db')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
@@ -44,6 +43,12 @@ class Horse(db.Model):
     dam = db.Column(db.String(100), nullable=True)
     herd_stallion = db.Column(db.String(100), nullable=True)
     image_file = db.Column(db.String(200), nullable=False, default='default')
+
+# --- АВТОМАТ ҮҮСГЭХ ХЭСЭГ (ХАМГИЙН ЧУХАЛ ЗАСВАР) ---
+# Ирж буй анхны хүсэлт болгоны өмнө хүснэгтүүдийг шалгаж үүсгэнэ
+@app.before_request
+def create_tables():
+    db.create_all()
 
 # --- СҮЛЖЭЭНИЙ СУВАГ (ROUTES) ---
 
@@ -150,8 +155,5 @@ def horse_detail(horse_id):
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()  # Хүснэгтүүдийг цоо шинээр хүчээр үүсгэнэ
-    
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
