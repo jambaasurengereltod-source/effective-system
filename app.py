@@ -1,19 +1,19 @@
 from flask import Flask, render_template, request, redirect, session
 from flask_sqlalchemy import SQLAlchemy
 import os
-from werkzeug.utils import secure_filename
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key_for_aduu_project"
 
-UPLOAD_FOLDER = os.path.join('static', 'uploads')
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  
-
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+# --- CLOUDINARY ХЭЗЭЭ Ч УСТДАГГҮЙ ЗУРГИЙН САНГИЙН ТӨГС ТӨХӨӨРӨМЖ ---
+cloudinary.config( 
+  cloud_name = "dnaspppgk",
+  api_key = "338716463513465",
+  api_secret = "-7AgTcwR9KP5OutNo7MGhL1w3Iw",
+  secure = True
+)
 
 # Өгөгдлийн сангийн холболт
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -25,11 +25,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- ӨГӨГДЛИЙН САНГИЙН ХҮСНЭГТҮҮД ---
+# --- ХҮСНЭГТҮҮД ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False) # ШИНЭ: И-мэйл багана
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(80), nullable=False)
 
 class Horse(db.Model):
@@ -42,10 +42,7 @@ class Horse(db.Model):
     stallion = db.Column(db.String(100), nullable=False) 
     dam = db.Column(db.String(100), nullable=True, default="Тодорхойгүй") 
     herd_stallion = db.Column(db.String(100), nullable=True, default="Тодорхойгүй") 
-    image_file = db.Column(db.String(200), nullable=True, default='default_horse.jpg')
-
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+    image_file = db.Column(db.String(500), nullable=True, default='default') # Онлайн линк хадгалах урт багана
 
 with app.app_context():
     db.create_all()
@@ -82,18 +79,17 @@ def add_horse():
     dam = request.form.get('dam', '').strip() or "Тодорхойгүй" 
     herd_stallion = request.form.get('herd_stallion', '').strip() or "Тодорхойгүй" 
 
-    image_name = 'default_horse.jpg'
+    image_url = 'default'
     if 'image' in request.files:
         file = request.files['image']
-        if file and file.filename != '' and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            unique_filename = f"{username}_{filename}"
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], unique_filename))
-            image_name = unique_filename
+        if file and file.filename != '':
+            # Зургийг Cloudinary руу онлайн хадгалахаар илгээнэ
+            upload_result = cloudinary.uploader.upload(file)
+            image_url = upload_result['secure_url'] # Онлайн линкийг нь баазад хадгална
 
     new_horse = Horse(
         username=username, name=name, age=age, color=color, mark=mark,
-        stallion=stallion, dam=dam, herd_stallion=herd_stallion, image_file=image_name
+        stallion=stallion, dam=dam, herd_stallion=herd_stallion, image_file=image_url
     )
     db.session.add(new_horse)
     db.session.commit()
@@ -107,9 +103,11 @@ def delete_horse(horse_id):
     username = session['username']
     horse = Horse.query.filter_by(id=horse_id, username=username).first()
     if horse:
-        if horse.image_file != 'default_horse.jpg':
+        # Устгах үед Cloudinary дээрх зургийг нь цуг цэвэрлэнэ
+        if horse.image_file != 'default':
             try:
-                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], horse.image_file))
+                public_id = horse.image_file.split('/')[-1].split('.')[0]
+                cloudinary.uploader.destroy(public_id)
             except:
                 pass
         db.session.delete(horse)
@@ -119,10 +117,8 @@ def delete_horse(horse_id):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Хэрэглэгч нэр эсвэл И-мэйлийн алинаар нь ч нэвтэрч болно
         login_input = request.form.get('username').strip()
         password = request.form.get('password')
-        
         user = User.query.filter((User.username == login_input) | (User.email == login_input)).first()
         if user and user.password == password:
             session['username'] = user.username
@@ -154,13 +150,11 @@ def reset_password():
     if request.method == 'POST':
         email = request.form.get('email').strip()
         new_password = request.form.get('new_password')
-        
-        # И-мэйл хаягаар нь хайж нууц үгийг солино
         user = User.query.filter_by(email=email).first()
         if user:
             user.password = new_password
             db.session.commit()
-            return render_template('login.html', success="Нууц үг амжилттай солигдлоо! Шинэ нууц үгээрээ нэвтэрнэ үү.")
+            return render_template('login.html', success="Нууц үг амжилттай солигдлоо! Нэвтэрч орно уу.")
         return render_template('reset_password.html', error="Энэ и-мэйл хаяг бүртгэлгүй байна!")
     return render_template('reset_password.html')
 
