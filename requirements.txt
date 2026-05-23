@@ -1,4 +1,4 @@
-Flask
-Flask-SQLAlchemy
-cloudinary
-gunicorn
+Flask  
+Flask-SQLAlchemy  
+cloudinary  
+gunicorn 
