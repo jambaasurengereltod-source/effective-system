@@ -16,14 +16,11 @@ cloudinary.config(
 
 # --- POSTGRESQL ӨГӨГДЛИЙН САНГИЙН ТОХИРГОО ---
 if os.environ.get('RENDER'):
-    # Таны өгсөн жинхэнэ PostgreSQL URL-ийг шууд энд холбов
     db_url = "postgresql://aduu_db_crhp_user:80mljWGsg7L5oKOrUIFaRR1rx3Mv4vTQ@dpg-d88igkdckfvc73fn088g-a/aduu_db_crhp"
-    
     if db_url and db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 else:
-    # Компьютер дээр чинь ажиллахдаа хуучин шигээ SQLite-аа ашиглана
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'aduu_local.db')
 
@@ -154,8 +151,16 @@ def horse_detail(horse_id):
         return "Хандах эрхгүй байна!", 403
     return f"<h3>🐴 {horse.name}</h3><p>Нас: {horse.age}</p><p>Зүс: {horse.color}</p><p>Эцэг: {horse.stallion}</p><br><a href='/'>Буцах</a>"
 
+# --- СЕРВЕР АСАХАД ӨГӨГДЛИЙН САНГ ХҮЧЭЭР ШИНЭЧЛЭХ ХЭСЭГ ---
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all()
+        print("--- ӨГӨГДЛИЙН САНГ ШИНЭЧЛЭЖ БАЙНА ---")
+        try:
+            db.drop_all()   # Хуучин гацсан, 'user_id' баганагүй хүснэгтийг устгана
+            db.create_all() # Шинэ бүтцийг Постгрес дээр цоо шинээр үүсгэнэ
+            print("--- ӨГӨГДЛИЙН САН АМЖИЛТТАЙ ЗАСАГДЛАА ---")
+        except Exception as e:
+            print("Алдаа гарлаа:", e)
+    
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
